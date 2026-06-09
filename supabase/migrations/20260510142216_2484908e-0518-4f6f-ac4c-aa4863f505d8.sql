@@ -1,0 +1,1 @@
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS markup_includes_vat boolean NOT NULL DEFAULT false;

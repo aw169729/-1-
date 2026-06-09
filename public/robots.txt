@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://asher-weinberger.com/sitemap.xml

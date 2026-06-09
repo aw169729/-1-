@@ -1,0 +1,1 @@
+ALTER TABLE public.clients ADD COLUMN exclude_from_total boolean NOT NULL DEFAULT false;

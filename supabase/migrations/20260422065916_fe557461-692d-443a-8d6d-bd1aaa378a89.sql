@@ -1,0 +1,1 @@
+ALTER TABLE public.clients ADD COLUMN IF NOT EXISTS show_driver_price boolean NOT NULL DEFAULT false;

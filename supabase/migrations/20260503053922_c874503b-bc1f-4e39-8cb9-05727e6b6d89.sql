@@ -1,0 +1,10 @@
+ALTER TABLE public.clients REPLICA IDENTITY FULL;
+ALTER TABLE public.trips REPLICA IDENTITY FULL;
+ALTER TABLE public.payments REPLICA IDENTITY FULL;
+ALTER TABLE public.phone_routing REPLICA IDENTITY FULL;
+ALTER TABLE public.settings REPLICA IDENTITY FULL;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.clients;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.trips;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.payments;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.phone_routing;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.settings;
