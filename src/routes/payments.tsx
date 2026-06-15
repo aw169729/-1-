@@ -638,23 +638,25 @@ function PaymentsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-right font-semibold text-foreground">לקוח</TableHead>
+                  <TableHead className="sticky right-0 z-30 bg-card text-right font-semibold text-foreground shadow-[-2px_0_4px_rgba(0,0,0,0.06)]">לקוח</TableHead>
                   {months.map((m) => (
                     <TableHead key={m} className="text-center font-semibold text-foreground">
                       {formatMonthLabel(m)}
                     </TableHead>
                   ))}
-                  <TableHead className="text-center font-semibold text-foreground">סה"כ חוב</TableHead>
-                  <TableHead className="text-center font-semibold text-foreground">שליחה</TableHead>
+                  <TableHead className="sticky left-[88px] z-30 bg-card text-center font-semibold text-foreground shadow-[2px_0_4px_rgba(0,0,0,0.06)]">סה"כ חוב</TableHead>
+                  <TableHead className="sticky left-0 z-30 bg-card text-center font-semibold text-foreground shadow-[2px_0_4px_rgba(0,0,0,0.06)]">שליחה</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredClients.map((c) => {
                   const cd = debtMap[c] ?? {};
                   const total = Object.values(cd).reduce((a, b) => a + b, 0);
+                  const rowCls = rowColor(c, cd);
+                  const stickyBg = rowCls.split(" ")[0];
                   return (
-                    <TableRow key={c} className={rowColor(c, cd)}>
-                      <TableCell className="font-medium text-foreground">
+                    <TableRow key={c} className={rowCls}>
+                      <TableCell className={`sticky right-0 z-10 font-medium text-foreground shadow-[-2px_0_4px_rgba(0,0,0,0.06)] ${stickyBg}`}>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
@@ -811,10 +813,10 @@ function PaymentsPage() {
                           </TableCell>
                         );
                       })}
-                      <TableCell className="text-center font-bold text-foreground">
+                      <TableCell className={`sticky left-[88px] z-10 text-center font-bold text-foreground shadow-[2px_0_4px_rgba(0,0,0,0.06)] ${stickyBg}`}>
                         {total > 0 ? `₪${total.toLocaleString("he-IL")}` : "₪0"}
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className={`sticky left-0 z-10 text-center shadow-[2px_0_4px_rgba(0,0,0,0.06)] ${stickyBg}`}>
                         {total > 0 && (
                           <div className="flex items-center justify-center gap-1">
                             <Button
