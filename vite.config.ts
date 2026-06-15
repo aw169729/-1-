@@ -1,3 +1,4 @@
+import path from "path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
@@ -11,4 +12,10 @@ export default defineConfig({
     tailwindcss(),
     tsconfigPaths(),
   ],
+  resolve: {
+    alias: {
+      "@tanstack/react-start/server": path.resolve("./src/stubs/tanstack-start-server.ts"),
+      "@tanstack/react-start": path.resolve("./src/stubs/tanstack-start.ts"),
+    },
+  },
 });
