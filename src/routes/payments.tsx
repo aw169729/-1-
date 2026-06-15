@@ -644,8 +644,8 @@ function PaymentsPage() {
                       {formatMonthLabel(m)}
                     </TableHead>
                   ))}
-                  <TableHead className="sticky left-[88px] z-30 bg-card text-center font-semibold text-foreground">סה"כ חוב</TableHead>
-                  <TableHead className="sticky left-0 z-30 bg-card text-center font-semibold text-foreground shadow-[-2px_0_6px_rgba(0,0,0,0.08)]">שליחה</TableHead>
+                  <TableHead className="sticky left-[96px] z-30 w-[100px] min-w-[100px] bg-card text-center font-semibold text-foreground">סה"כ חוב</TableHead>
+                  <TableHead className="sticky left-0 z-30 w-24 min-w-[96px] bg-card text-center font-semibold text-foreground shadow-[-2px_0_6px_rgba(0,0,0,0.08)]">שליחה</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -813,10 +813,10 @@ function PaymentsPage() {
                           </TableCell>
                         );
                       })}
-                      <TableCell className={`sticky left-[88px] z-10 text-center font-bold text-foreground ${stickyBg}`}>
+                      <TableCell className={`sticky left-[96px] z-10 w-[100px] min-w-[100px] text-center font-bold text-foreground ${stickyBg}`}>
                         {total > 0 ? `₪${total.toLocaleString("he-IL")}` : "₪0"}
                       </TableCell>
-                      <TableCell className={`sticky left-0 z-10 text-center shadow-[-2px_0_6px_rgba(0,0,0,0.08)] ${stickyBg}`}>
+                      <TableCell className={`sticky left-0 z-10 w-24 min-w-[96px] text-center shadow-[-2px_0_6px_rgba(0,0,0,0.08)] ${stickyBg}`}>
                         {total > 0 && (
                           <div className="flex items-center justify-center gap-1">
                             <Button
