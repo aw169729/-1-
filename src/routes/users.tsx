@@ -1,15 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
-import { useServerFn } from "@tanstack/react-start";
-import {
-  listUsers,
-  createUser,
-  deleteUser,
-  updateUserPassword,
-  updateUserEmail,
-  setUserRole,
-  setUserPermission,
-} from "@/lib/admin-users.functions";
 import { useAuth, PAGES, type PageKey } from "@/contexts/auth-context";
 import { PageNav } from "@/components/auth/PageNav";
 import { Button } from "@/components/ui/button";
@@ -27,18 +17,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Trash2, KeyRound, Plus, ShieldCheck, Mail } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/users")({
-  head: () => ({
-    meta: [
-      { title: "ניהול משתמשים — ניהול נסיעות" },
-      { name: "description", content: "ניהול משתמשי המערכת: יצירת משתמשים, הגדרת תפקידים והרשאות גישה ללשוניות השונות של מערכת ניהול הנסיעות." },
-      { property: "og:title", content: "ניהול משתמשים — ניהול נסיעות" },
-      { property: "og:description", content: "ניהול משתמשי המערכת, תפקידים והרשאות גישה ללשוניות." },
-      { property: "og:url", content: "https://asher-weinberger.com/users" },
-    ],
-    links: [{ rel: "canonical", href: "https://asher-weinberger.com/users" }],
-  }),
   component: UsersPage,
 });
 
@@ -50,38 +31,40 @@ type AdminUser = {
   permissions: { page: string; can_view: boolean; can_edit: boolean }[];
 };
 
+async function adminFetch(path: string, body: object, token: string) {
+  const res = await fetch(`/api/admin/${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error ?? "שגיאה");
+  return json;
+}
+
 function UsersPage() {
   const { isAdmin, loading, session } = useAuth();
   const navigate = useNavigate();
-  const list = useServerFn(listUsers);
-  const createFn = useServerFn(createUser);
-  const deleteFn = useServerFn(deleteUser);
-  const pwFn = useServerFn(updateUserPassword);
-  const emailFn = useServerFn(updateUserEmail);
-  const roleFn = useServerFn(setUserRole);
-  const permFn = useServerFn(setUserPermission);
-
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [busy, setBusy] = useState(false);
 
+  const token = () => session?.access_token ?? "";
+
   const refresh = useCallback(async () => {
+    if (!session?.access_token) return;
     setBusy(true);
     try {
-      const r = await list();
-      const normalized = ((r?.users ?? []) as any[]).map((u) => ({
-        id: u.id,
-        email: u.email ?? "",
-        created_at: u.created_at,
-        roles: Array.isArray(u.roles) ? u.roles : [],
-        permissions: Array.isArray(u.permissions) ? u.permissions : [],
-      })) as AdminUser[];
-      setUsers(normalized);
+      const r = await adminFetch("list-users", {}, session.access_token);
+      setUsers(r.users ?? []);
     } catch (e: any) {
       toast.error(e.message ?? "שגיאה בטעינה");
     } finally {
       setBusy(false);
     }
-  }, [list]);
+  }, [session?.access_token]);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate({ to: "/" });
@@ -103,22 +86,18 @@ function UsersPage() {
             <ShieldCheck className="h-6 w-6 text-primary" />
             <h1 className="text-xl font-bold">ניהול משתמשים</h1>
           </div>
-          <PageNav />
+          <PageNav current="users" />
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">משתמשים</h2>
+          <h2 className="text-lg font-semibold">משתמשים ({users.length})</h2>
           <CreateUserDialog
             onCreate={async (email, password, isAdminFlag) => {
-              try {
-                await createFn({ data: { email, password, isAdmin: isAdminFlag } });
-                toast.success("משתמש נוצר");
-                await refresh();
-              } catch (e: any) {
-                toast.error(e.message ?? "שגיאה");
-              }
+              await adminFetch("create-user", { email, password, isAdmin: isAdminFlag }, token());
+              toast.success("משתמש נוצר");
+              await refresh();
             }}
           />
         </div>
@@ -126,6 +105,8 @@ function UsersPage() {
         <div className="space-y-3">
           {busy && users.length === 0 ? (
             <div className="rounded-xl bg-card p-8 text-center text-muted-foreground">טוען...</div>
+          ) : users.length === 0 ? (
+            <div className="rounded-xl bg-card p-8 text-center text-muted-foreground">אין משתמשים</div>
           ) : (
             users.map((u) => (
               <UserCard
@@ -134,47 +115,27 @@ function UsersPage() {
                 isSelf={u.id === session?.user?.id}
                 onDelete={async () => {
                   if (!confirm(`למחוק את ${u.email}?`)) return;
-                  try {
-                    await deleteFn({ data: { userId: u.id } });
-                    toast.success("נמחק");
-                    await refresh();
-                  } catch (e: any) {
-                    toast.error(e.message ?? "שגיאה");
-                  }
+                  await adminFetch("delete-user", { userId: u.id }, token());
+                  toast.success("נמחק");
+                  await refresh();
                 }}
                 onChangePassword={async (pw) => {
-                  try {
-                    await pwFn({ data: { userId: u.id, password: pw } });
-                    toast.success("הסיסמה עודכנה");
-                  } catch (e: any) {
-                    toast.error(e.message ?? "שגיאה");
-                  }
+                  await adminFetch("update-password", { userId: u.id, password: pw }, token());
+                  toast.success("הסיסמה עודכנה");
                 }}
                 onChangeEmail={async (em) => {
-                  try {
-                    await emailFn({ data: { userId: u.id, email: em } });
-                    toast.success("המייל עודכן");
-                    await refresh();
-                  } catch (e: any) {
-                    toast.error(e.message ?? "שגיאה");
-                  }
+                  await adminFetch("update-email", { userId: u.id, email: em }, token());
+                  toast.success("המייל עודכן");
+                  await refresh();
                 }}
                 onToggleAdmin={async (val) => {
-                  try {
-                    await roleFn({ data: { userId: u.id, isAdmin: val } });
-                    toast.success("עודכן");
-                    await refresh();
-                  } catch (e: any) {
-                    toast.error(e.message ?? "שגיאה");
-                  }
+                  await adminFetch("set-role", { userId: u.id, isAdmin: val }, token());
+                  toast.success("עודכן");
+                  await refresh();
                 }}
                 onSetPerm={async (page, can_view, can_edit) => {
-                  try {
-                    await permFn({ data: { userId: u.id, page, can_view, can_edit } });
-                    await refresh();
-                  } catch (e: any) {
-                    toast.error(e.message ?? "שגיאה");
-                  }
+                  await adminFetch("set-permission", { userId: u.id, page, can_view, can_edit }, token());
+                  await refresh();
                 }}
               />
             ))
@@ -203,7 +164,7 @@ function CreateUserDialog({
           <Plus className="ml-2 h-4 w-4" /> הוסף משתמש
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent dir="rtl">
         <DialogHeader>
           <DialogTitle>משתמש חדש</DialogTitle>
         </DialogHeader>
@@ -237,15 +198,20 @@ function CreateUserDialog({
             disabled={saving || !email || password.length < 6}
             onClick={async () => {
               setSaving(true);
-              await onCreate(email, password, isAdminFlag);
-              setSaving(false);
-              setOpen(false);
-              setEmail("");
-              setPassword("");
-              setIsAdminFlag(false);
+              try {
+                await onCreate(email, password, isAdminFlag);
+                setOpen(false);
+                setEmail("");
+                setPassword("");
+                setIsAdminFlag(false);
+              } catch (e: any) {
+                toast.error(e.message ?? "שגיאה");
+              } finally {
+                setSaving(false);
+              }
             }}
           >
-            צור
+            {saving ? "יוצר..." : "צור"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -270,16 +236,14 @@ function UserCard({
   onToggleAdmin: (val: boolean) => Promise<void>;
   onSetPerm: (page: string, can_view: boolean, can_edit: boolean) => Promise<void>;
 }) {
-  const roles = user.roles ?? [];
-  const permissions = user.permissions ?? [];
-  const isAdmin = roles.includes("admin");
+  const isAdminUser = user.roles.includes("admin");
   const [pwOpen, setPwOpen] = useState(false);
   const [pw, setPw] = useState("");
   const [emailOpen, setEmailOpen] = useState(false);
   const [newEmail, setNewEmail] = useState(user.email);
 
   const getPerm = (page: PageKey) =>
-    permissions.find((p) => p.page === page) ?? { can_view: false, can_edit: false };
+    user.permissions.find((p) => p.page === page) ?? { can_view: false, can_edit: false };
 
   return (
     <div className="rounded-xl border bg-card p-4 shadow-[var(--shadow-card)]">
@@ -287,14 +251,15 @@ function UserCard({
         <div>
           <div className="font-semibold" dir="ltr">{user.email}</div>
           <div className="text-xs text-muted-foreground">
-            {isAdmin ? "מנהל" : "משתמש"}
+            {isAdminUser ? "מנהל" : "משתמש"}
+            {isSelf && " (אתה)"}
           </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
             <Checkbox
               id={`admin-${user.id}`}
-              checked={isAdmin}
+              checked={isAdminUser}
               disabled={isSelf}
               onCheckedChange={(v) => onToggleAdmin(!!v)}
             />
@@ -306,7 +271,7 @@ function UserCard({
                 <KeyRound className="ml-2 h-4 w-4" /> סיסמה
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent dir="rtl">
               <DialogHeader>
                 <DialogTitle>שינוי סיסמה — {user.email}</DialogTitle>
               </DialogHeader>
@@ -322,9 +287,13 @@ function UserCard({
                 <Button
                   disabled={pw.length < 6}
                   onClick={async () => {
-                    await onChangePassword(pw);
-                    setPw("");
-                    setPwOpen(false);
+                    try {
+                      await onChangePassword(pw);
+                      setPw("");
+                      setPwOpen(false);
+                    } catch (e: any) {
+                      toast.error(e.message ?? "שגיאה");
+                    }
                   }}
                 >
                   שמור
@@ -338,7 +307,7 @@ function UserCard({
                 <Mail className="ml-2 h-4 w-4" /> מייל
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent dir="rtl">
               <DialogHeader>
                 <DialogTitle>שינוי מייל — {user.email}</DialogTitle>
               </DialogHeader>
@@ -354,8 +323,12 @@ function UserCard({
                 <Button
                   disabled={!newEmail || newEmail === user.email || !/.+@.+\..+/.test(newEmail)}
                   onClick={async () => {
-                    await onChangeEmail(newEmail);
-                    setEmailOpen(false);
+                    try {
+                      await onChangeEmail(newEmail);
+                      setEmailOpen(false);
+                    } catch (e: any) {
+                      toast.error(e.message ?? "שגיאה");
+                    }
                   }}
                 >
                   שמור
@@ -367,7 +340,13 @@ function UserCard({
             variant="outline"
             size="sm"
             disabled={isSelf}
-            onClick={onDelete}
+            onClick={async () => {
+              try {
+                await onDelete();
+              } catch (e: any) {
+                toast.error(e.message ?? "שגיאה");
+              }
+            }}
             className="text-destructive"
           >
             <Trash2 className="ml-2 h-4 w-4" /> מחק
@@ -375,7 +354,7 @@ function UserCard({
         </div>
       </div>
 
-      {!isAdmin && (
+      {!isAdminUser && (
         <div className="mt-4 border-t pt-3">
           <div className="mb-2 text-sm font-medium">הרשאות לפי דף</div>
           <div className="grid gap-2 sm:grid-cols-2">
