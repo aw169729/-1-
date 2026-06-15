@@ -41,6 +41,7 @@ import { fetchAllRows } from "@/lib/fetch-all";
 import {
   fetchAdditionalCharges,
   addAdditionalCharge,
+  deleteAdditionalCharge,
   buildAdditionalChargesMap,
   type AdditionalCharge,
 } from "@/lib/additional-charges";
@@ -1126,6 +1127,29 @@ function PaymentsPage() {
                     <span className="text-muted-foreground">סה"כ תוספת ידנית</span>
                     <span className="font-semibold text-blue-600">₪{breakdownDialog.fromExtra.toLocaleString("he-IL")}</span>
                   </div>
+                  {additionalCharges
+                    .filter(c => c.client === breakdownDialog.client && c.month === breakdownDialog.month)
+                    .map(c => (
+                      <div key={c.id} className="flex items-center justify-between text-xs text-muted-foreground pr-2">
+                        <span className="truncate max-w-[60%]">{c.note || "חיוב ידני"}</span>
+                        <div className="flex items-center gap-2">
+                          <span>₪{c.amount.toLocaleString("he-IL")}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              deleteAdditionalCharge(c.id);
+                              setAdditionalCharges(fetchAdditionalCharges());
+                              setBreakdownDialog(null);
+                            }}
+                            className="text-red-400 hover:text-red-600 text-xs"
+                            title="מחק חיוב"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  }
                   <div className="flex items-center justify-between border-t border-border/60 pt-2 text-sm">
                     <span className="font-medium">סה"כ כללי</span>
                     <span className="text-base font-bold">₪{effectiveTotal.toLocaleString("he-IL")}</span>
