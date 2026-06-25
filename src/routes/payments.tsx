@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Wallet, ArrowRight, MessageCircle, Send, Mail, EyeOff, Eye, StickyNote, PlusCircle, RefreshCw } from "lucide-react";
+import { Wallet, ArrowRight, MessageCircle, Send, Mail, EyeOff, Eye, StickyNote, PlusCircle, RefreshCw, Download, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { Toaster } from "@/components/ui/sonner";
@@ -548,6 +548,46 @@ function PaymentsPage() {
     await load();
   };
 
+  const exportLocalCharges = () => {
+    const raw = localStorage.getItem("additional-charges-v1");
+    const charges = raw ? JSON.parse(raw) : [];
+    if (!charges.length) {
+      toast.error("אין חיובים ידניים ישנים לייצוא בדפדפן זה");
+      return;
+    }
+    const blob = new Blob([JSON.stringify(charges, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "חיובים-ידניים.json";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`יוצאו ${charges.length} חיובים ידניים`);
+  };
+
+  const importCharges = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const charges = JSON.parse(text);
+      if (!Array.isArray(charges) || charges.length === 0) {
+        toast.error("הקובץ ריק או לא תקין");
+        return;
+      }
+      let added = 0;
+      for (const c of charges) {
+        await addAdditionalCharge(c.client, c.month, c.amount, c.note ?? "");
+        added++;
+      }
+      await loadAdditional();
+      toast.success(`יובאו ${added} חיובים ידניים בהצלחה`);
+    } catch {
+      toast.error("שגיאה בקריאת הקובץ");
+    }
+    e.target.value = "";
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Toaster position="top-center" richColors />
@@ -567,6 +607,19 @@ function PaymentsPage() {
               <Send className="ml-2 h-4 w-4" />
               שלח לכולם
             </Button>
+            <Button variant="outline" size="sm" onClick={exportLocalCharges} title="ייצא חיובים ידניים ישנים מהדפדפן">
+              <Download className="ml-2 h-4 w-4" />
+              ייצוא ישן
+            </Button>
+            <label>
+              <Button variant="outline" size="sm" asChild>
+                <span className="cursor-pointer">
+                  <Upload className="ml-2 h-4 w-4" />
+                  ייבוא לענן
+                </span>
+              </Button>
+              <input type="file" accept=".json" className="hidden" onChange={importCharges} />
+            </label>
             <PageNav current="payments" />
           </div>
         </div>
