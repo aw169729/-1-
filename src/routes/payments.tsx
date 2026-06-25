@@ -143,9 +143,11 @@ function PaymentsPage() {
   const [savingNotes, setSavingNotes] = useState(false);
 
   // Excluded trip months
-  const [excludedSet, setExcludedSet] = useState<Set<string>>(() => fetchExcludedSet());
+  const [excludedSet, setExcludedSet] = useState<Set<string>>(new Set());
 
-  const reloadExcluded = () => setExcludedSet(fetchExcludedSet());
+  const reloadExcluded = useCallback(async () => {
+    setExcludedSet(await fetchExcludedSet());
+  }, []);
 
   // Additional manual charges
   const [additionalCharges, setAdditionalCharges] = useState<AdditionalCharge[]>([]);
@@ -158,11 +160,11 @@ function PaymentsPage() {
     fromTrips: number; fromExtra: number; total: number; debt: number;
   } | null>(null);
 
-  const loadAdditional = useCallback(() => {
-    setAdditionalCharges(fetchAdditionalCharges());
+  const loadAdditional = useCallback(async () => {
+    setAdditionalCharges(await fetchAdditionalCharges());
   }, []);
 
-  useEffect(() => { loadAdditional(); }, [loadAdditional]);
+  useEffect(() => { loadAdditional(); reloadExcluded(); }, [loadAdditional, reloadExcluded]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1088,13 +1090,13 @@ function PaymentsPage() {
           </div>
           <DialogFooter className="sm:justify-start">
             <Button
-              onClick={() => {
+              onClick={async () => {
                 if (!addChargeDialog) return;
                 const amt = parseFloat(addChargeAmount);
                 if (!addChargeMonth) { toast.error("יש לבחור חודש"); return; }
                 if (isNaN(amt) || amt <= 0) { toast.error("יש להזין סכום חיובי"); return; }
-                addAdditionalCharge(addChargeDialog.clientName, addChargeMonth, amt, addChargeNote);
-                loadAdditional();
+                await addAdditionalCharge(addChargeDialog.clientName, addChargeMonth, amt, addChargeNote);
+                await loadAdditional();
                 toast.success(`חיוב של ₪${amt.toLocaleString("he-IL")} נוסף ל${addChargeDialog.clientName}`);
                 setAddChargeDialog(null);
               }}
@@ -1138,9 +1140,9 @@ function PaymentsPage() {
                           <span>₪{c.amount.toLocaleString("he-IL")}</span>
                           <button
                             type="button"
-                            onClick={() => {
-                              deleteAdditionalCharge(c.id);
-                              setAdditionalCharges(fetchAdditionalCharges());
+                            onClick={async () => {
+                              await deleteAdditionalCharge(c.id);
+                              await loadAdditional();
                               setBreakdownDialog(null);
                             }}
                             className="text-red-400 hover:text-red-600 text-xs"
@@ -1164,10 +1166,10 @@ function PaymentsPage() {
 
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     const next = !isExcluded;
-                    setTripsExcluded(breakdownDialog.client, breakdownDialog.month, next);
-                    reloadExcluded();
+                    await setTripsExcluded(breakdownDialog.client, breakdownDialog.month, next);
+                    await reloadExcluded();
                     setBreakdownDialog((prev) => prev ? { ...prev, debt: next
                       ? Math.max(breakdownDialog.fromExtra - (paidMap[breakdownDialog.client]?.[breakdownDialog.month] ?? 0), 0)
                       : Math.max(breakdownDialog.fromTrips + breakdownDialog.fromExtra - (paidMap[breakdownDialog.client]?.[breakdownDialog.month] ?? 0), 0)
