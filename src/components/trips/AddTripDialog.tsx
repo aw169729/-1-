@@ -23,30 +23,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fetchBillingMonth } from "@/lib/billing-month";
 import { fetchAllClients, type ClientRow } from "@/lib/client-matching";
-import { fetchAllRows } from "@/lib/fetch-all";
+import { findNextTripNumber, findNextTripNumbers } from "@/lib/trip-numbers";
+import { withAutoReturnTrips } from "@/lib/auto-return-trip";
 
 interface Props {
   onAdded: () => void;
-}
-
-const MIN_AUTO = 1;
-const MAX_AUTO = 9999;
-
-/** Find smallest unused 4-digit trip number (0001..9999). */
-async function findNextTripNumber(): Promise<string | null> {
-  const { data, error } = await fetchAllRows<{ trip_number: string }>((from, to) =>
-    supabase.from("trips").select("trip_number").range(from, to),
-  );
-  if (error) throw error;
-  const used = new Set<number>();
-  for (const r of data) {
-    const n = Number(r.trip_number);
-    if (Number.isInteger(n) && n >= MIN_AUTO && n <= MAX_AUTO) used.add(n);
-  }
-  for (let i = MIN_AUTO; i <= MAX_AUTO; i++) {
-    if (!used.has(i)) return String(i).padStart(4, "0");
-  }
-  return null;
 }
 
 export function AddTripDialog({ onAdded }: Props) {
@@ -125,16 +106,16 @@ export function AddTripDialog({ onAdded }: Props) {
         billing_month: billing.month,
         notes: notes.trim() || null,
       };
-      const { error } = await supabase.from("trips").insert(payload as never);
+      let rowsToInsert = await withAutoReturnTrips([payload]);
+      const { error } = await supabase.from("trips").insert(rowsToInsert as never);
       if (error) {
         if (error.code === "23505") {
-          // Race: find a fresh number and retry once
-          const next = await findNextTripNumber();
-          if (next) {
-            numberToUse = next;
-            const { error: e2 } = await supabase
-              .from("trips")
-              .insert({ ...payload, trip_number: next } as never);
+          // Race: renumber every row in this batch and retry once
+          const numbers = await findNextTripNumbers(rowsToInsert.length);
+          if (numbers.length === rowsToInsert.length) {
+            rowsToInsert = rowsToInsert.map((r, i) => ({ ...r, trip_number: numbers[i] }));
+            numberToUse = numbers[0];
+            const { error: e2 } = await supabase.from("trips").insert(rowsToInsert as never);
             if (e2) {
               toast.error("מספר נסיעה כבר קיים");
               return;
@@ -147,7 +128,8 @@ export function AddTripDialog({ onAdded }: Props) {
           throw error;
         }
       }
-      toast.success(`הנסיעה ${numberToUse} נוספה`);
+      const mirrors = rowsToInsert.length - 1;
+      toast.success(`הנסיעה ${numberToUse} נוספה${mirrors ? " (+ נסיעת חזור אוטומטית)" : ""}`);
       reset();
       setOpen(false);
       onAdded();

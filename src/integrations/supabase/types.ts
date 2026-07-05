@@ -17,6 +17,7 @@ export type Database = {
       clients: {
         Row: {
           aliases: string[]
+          auto_return_trip: boolean
           collection_rate: number | null
           created_at: string
           email: string | null
@@ -37,6 +38,7 @@ export type Database = {
         }
         Insert: {
           aliases?: string[]
+          auto_return_trip?: boolean
           collection_rate?: number | null
           created_at?: string
           email?: string | null
@@ -57,6 +59,7 @@ export type Database = {
         }
         Update: {
           aliases?: string[]
+          auto_return_trip?: boolean
           collection_rate?: number | null
           created_at?: string
           email?: string | null

@@ -70,6 +70,7 @@ interface ClientRecord {
   sort_by_date: string | null;
   sort_by_origin: string | null;
   exclude_from_total: boolean | null;
+  auto_return_trip: boolean | null;
   created_at: string;
 }
 
@@ -221,6 +222,7 @@ function ClientFormDialog({ open, client, onClose, onSaved }: FormProps) {
   const [showDriverPrice, setShowDriverPrice] = useState(false);
   const [showFullBreakdown, setShowFullBreakdown] = useState(false);
   const [excludeFromTotal, setExcludeFromTotal] = useState(false);
+  const [autoReturnTrip, setAutoReturnTrip] = useState(false);
   const [sortByDate, setSortByDate] = useState<"none" | "asc" | "desc">("none");
   const [sortByOrigin, setSortByOrigin] = useState<"none" | "asc" | "desc">("none");
   const [saving, setSaving] = useState(false);
@@ -242,6 +244,7 @@ function ClientFormDialog({ open, client, onClose, onSaved }: FormProps) {
       setShowDriverPrice(!!client?.show_driver_price);
       setShowFullBreakdown(!!client?.show_full_price_breakdown);
       setExcludeFromTotal(!!client?.exclude_from_total);
+      setAutoReturnTrip(!!client?.auto_return_trip);
       setSortByDate(((client?.sort_by_date as "none" | "asc" | "desc") || "none"));
       setSortByOrigin(((client?.sort_by_origin as "none" | "asc" | "desc") || "none"));
       setNewPhone("");
@@ -292,6 +295,7 @@ function ClientFormDialog({ open, client, onClose, onSaved }: FormProps) {
       show_driver_price: showDriverPrice,
       show_full_price_breakdown: showFullBreakdown,
       exclude_from_total: excludeFromTotal,
+      auto_return_trip: autoReturnTrip,
       sort_by_date: sortByDate,
       sort_by_origin: sortByOrigin,
     };
@@ -496,6 +500,16 @@ function ClientFormDialog({ open, client, onClose, onSaved }: FormProps) {
             />
             <Label htmlFor="exclude-from-total" className="cursor-pointer">
               אל תכלול את הלקוח בסה"כ החובות בדרישת תשלום
+            </Label>
+          </div>
+          <div className="flex items-center gap-2 border-t pt-3">
+            <Checkbox
+              id="auto-return-trip"
+              checked={autoReturnTrip}
+              onCheckedChange={(v) => setAutoReturnTrip(!!v)}
+            />
+            <Label htmlFor="auto-return-trip" className="cursor-pointer">
+              צור אוטומטית נסיעת חזור (אם חסרה לאותו יום, בהעלאת אקסל ובהוספה ידנית)
             </Label>
           </div>
           <div className="border-t pt-3 space-y-3">

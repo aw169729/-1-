@@ -17,6 +17,8 @@ import {
 import { ResolveClientsDialog, type Resolution } from "./ResolveClientsDialog";
 import { AssignNoteDialog, type NoteGroup } from "./AssignNoteDialog";
 import { fetchAllRows } from "@/lib/fetch-all";
+import { findNextTripNumbers } from "@/lib/trip-numbers";
+import { withAutoReturnTrips } from "@/lib/auto-return-trip";
 
 interface Props {
   onUploaded: () => void;
@@ -32,29 +34,6 @@ const COLUMN_MAP: Record<string, string> = {
   "טלפון לקוח": "phone",
   "תאריך": "trip_date",
 };
-
-const MIN_AUTO = 1;
-const MAX_AUTO = 9999;
-
-async function findNextTripNumbers(count: number): Promise<string[]> {
-  const { data, error } = await fetchAllRows<{ trip_number: string }>((from, to) =>
-    supabase.from("trips").select("trip_number").range(from, to),
-  );
-  if (error) throw error;
-  const used = new Set<number>();
-  for (const r of data) {
-    const n = Number(r.trip_number);
-    if (Number.isInteger(n) && n >= MIN_AUTO && n <= MAX_AUTO) used.add(n);
-  }
-  const result: string[] = [];
-  for (let i = MIN_AUTO; i <= MAX_AUTO && result.length < count; i++) {
-    if (!used.has(i)) {
-      used.add(i); // mark as used so next iteration skips it
-      result.push(String(i).padStart(4, "0"));
-    }
-  }
-  return result;
-}
 
 export function UploadTripsDialog({ onUploaded }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -181,9 +160,13 @@ export function UploadTripsDialog({ onUploaded }: Props) {
   };
 
   const saveTrips = async (rows: Array<Record<string, unknown>>, skipped: number) => {
-    const { error } = await supabase.from("trips").insert(rows as never);
+    const finalRows = await withAutoReturnTrips(rows);
+    const { error } = await supabase.from("trips").insert(finalRows as never);
     if (error) throw error;
-    toast.success(`נוספו ${rows.length} נסיעות. דולגו ${skipped} כפולות.`);
+    const mirrors = finalRows.length - rows.length;
+    toast.success(
+      `נוספו ${finalRows.length} נסיעות${mirrors ? ` (כולל ${mirrors} נסיעות חזור אוטומטיות)` : ""}. דולגו ${skipped} כפולות.`,
+    );
     onUploaded();
   };
 
@@ -208,12 +191,16 @@ export function UploadTripsDialog({ onUploaded }: Props) {
         toast.error("לא מספיק מספרי נסיעה פנויים בטווח 0001–9999");
         return;
       }
-      const finalRows = rows.map((row, idx) => ({ ...row, trip_number: numbers[idx] }));
+      const numberedRows = rows.map((row, idx) => ({ ...row, trip_number: numbers[idx] }));
+      const finalRows = await withAutoReturnTrips(numberedRows);
 
       const { error } = await supabase.from("trips").insert(finalRows as never);
       if (error) throw error;
 
-      toast.success(`נוספו ${finalRows.length} נסיעות עם מספרים אוטומטיים.`);
+      const mirrors = finalRows.length - numberedRows.length;
+      toast.success(
+        `נוספו ${finalRows.length} נסיעות עם מספרים אוטומטיים${mirrors ? ` (כולל ${mirrors} נסיעות חזור אוטומטיות)` : ""}.`,
+      );
       setAssigning(false);
       setUnnumberedRows([]);
       onUploaded();
@@ -239,15 +226,19 @@ export function UploadTripsDialog({ onUploaded }: Props) {
           nameToId.set(name, res.clientId);
         }
       }
-      const finalRows = pendingRows.map((row) => {
+      const resolvedRows = pendingRows.map((row) => {
         if (row.client_id) return row;
         const name = normalizeName(row.client as string | null);
         const id = nameToId.get(name);
         return id ? { ...row, client_id: id } : row;
       });
+      const finalRows = await withAutoReturnTrips(resolvedRows);
       const { error } = await supabase.from("trips").insert(finalRows as never);
       if (error) throw error;
-      toast.success(`נוספו ${finalRows.length} נסיעות.`);
+      const mirrors = finalRows.length - resolvedRows.length;
+      toast.success(
+        `נוספו ${finalRows.length} נסיעות${mirrors ? ` (כולל ${mirrors} נסיעות חזור אוטומטיות)` : ""}.`,
+      );
       setResolving(false);
       setPendingRows([]);
       setUnmatchedNames([]);
