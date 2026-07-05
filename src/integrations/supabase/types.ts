@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      additional_charges: {
+        Row: {
+          id: string
+          client: string
+          month: string
+          amount: number
+          note: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          client: string
+          month: string
+          amount: number
+          note?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          client?: string
+          month?: string
+          amount?: number
+          note?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      excluded_trip_months: {
+        Row: {
+          id: string
+          client: string
+          month: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          client: string
+          month: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          client?: string
+          month?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           aliases: string[]

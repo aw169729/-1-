@@ -1,35 +1,34 @@
-/**
- * Stores which client+month combos should have trips excluded from debt calc.
- * Key format: "ClientName|YYYY-MM"
- */
-const KEY = "excluded-trip-months-v1";
+import { supabase } from "@/integrations/supabase/client";
 
-function readAll(): Set<string> {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return new Set();
-    const arr = JSON.parse(raw);
-    return new Set(Array.isArray(arr) ? arr : []);
-  } catch {
+export async function fetchExcludedSet(): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from("excluded_trip_months")
+    .select("client, month");
+  if (error) {
+    console.error("fetchExcludedSet:", error);
     return new Set();
   }
+  return new Set((data ?? []).map((r) => `${r.client}|${r.month}`));
 }
 
-function writeAll(s: Set<string>) {
-  localStorage.setItem(KEY, JSON.stringify(Array.from(s)));
-}
-
-export function isTripsExcluded(client: string, month: string): boolean {
-  return readAll().has(`${client}|${month}`);
-}
-
-export function setTripsExcluded(client: string, month: string, excluded: boolean) {
-  const s = readAll();
-  const k = `${client}|${month}`;
-  if (excluded) s.add(k); else s.delete(k);
-  writeAll(s);
-}
-
-export function fetchExcludedSet(): Set<string> {
-  return readAll();
+export async function setTripsExcluded(
+  client: string,
+  month: string,
+  excluded: boolean,
+): Promise<void> {
+  if (excluded) {
+    const { error } = await supabase
+      .from("excluded_trip_months")
+      .insert({ client, month })
+      .select()
+      .maybeSingle();
+    if (error && error.code !== "23505") console.error("setTripsExcluded insert:", error);
+  } else {
+    const { error } = await supabase
+      .from("excluded_trip_months")
+      .delete()
+      .eq("client", client)
+      .eq("month", month);
+    if (error) console.error("setTripsExcluded delete:", error);
+  }
 }
