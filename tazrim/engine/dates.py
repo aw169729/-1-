@@ -44,27 +44,46 @@ def eomonth(d, k=0):
     return nxt - dt.timedelta(days=1)
 
 
-def due_date(inv, term, value=None):
-    """תאריך פירעון מוסכם לפי רשימת התנאים של אשר."""
-    if term == "מיידי":
+# טבלת תנאי התשלום - ברירת מחדל. ניתנת להחלפה מלאה.
+TERMS = {
+    "מיידי":          ("מיידי", None),
+    "שוטף":           ("סוף חודש", None),
+    "שוטף 30":        ("ימים מהחשבונית", 30),
+    "שוטף 60":        ("ימים מהחשבונית", 60),
+    "שוטף 90":        ("ימים מהחשבונית", 90),
+    "שוטף 120":       ("ימים מהחשבונית", 120),
+    "שוטף פלוס 30":   ("סוף חודש + ימים", 30),
+    "שוטף פלוס 45":   ("סוף חודש + ימים", 45),
+    "שוטף פלוס 60":   ("סוף חודש + ימים", 60),
+    "שוטף פלוס 90":   ("סוף חודש + ימים", 90),
+    "שוטף פלוס 120":  ("סוף חודש + ימים", 120),
+    "תאריך קבוע":     ("תאריך קבוע", None),
+}
+
+
+def due_date(inv, term, value=None, terms=None):
+    """תאריך פירעון מוסכם, נגזר מטבלת התנאים ולא מפענוח טקסט."""
+    table = TERMS if terms is None else terms
+    if term not in table:
+        raise KeyError(f"תנאי לא קיים בטבלה: {term}")
+    kind, days = table[term]
+    if kind == "מיידי":
         return inv
-    if term == "שוטף":                      # סוף החודש
+    if kind == "סוף חודש":
         return eomonth(inv, 0)
-    if term.startswith("שוטף פלוס "):        # סוף החודש + N
-        return eomonth(inv, 0) + dt.timedelta(days=int(term.split()[-1]))
-    if term.startswith("שוטף "):             # N ימים מהחשבונית
-        return inv + dt.timedelta(days=int(term.split()[-1]))
-    if term == "ימים":
-        return inv + dt.timedelta(days=int(value))
-    if term == "תאריך קבוע":
+    if kind == "ימים מהחשבונית":
+        return inv + dt.timedelta(days=days)
+    if kind == "סוף חודש + ימים":
+        return eomonth(inv, 0) + dt.timedelta(days=days)
+    if kind == "תאריך קבוע":
         return value
-    raise ValueError(term)
+    raise ValueError(kind)
 
 
 def bank_date(inv, term, direction, value=None, delay=None,
-               default_delay=5, scen_delay=0, manual_due=None):
+               default_delay=5, scen_delay=0, manual_due=None, terms=None):
     """תאריך הבנק המלא. manual_due (עמודה AM) דורס את הפירעון המחושב."""
-    due = manual_due if manual_due else due_date(inv, term, value)
+    due = manual_due if manual_due else due_date(inv, term, value, terms)
     if direction == "הכנסה":
         n = default_delay if delay is None else delay
         return shift_fwd(add_biz(shift_fwd(due), n + scen_delay))
